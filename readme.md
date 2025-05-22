@@ -35,8 +35,8 @@ python-dotenv
 
 1. **Clona o descarga el proyecto:**
 ```bash
-git clone <url-del-repositorio>
-cd email-sender-app
+git clone https://github.com/DanielMoranV/sendEmailCSR.git
+cd sendEmailCSR
 ```
 
 2. **Instala las dependencias:**
