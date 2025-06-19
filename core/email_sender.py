@@ -33,8 +33,15 @@ class EmailSender:
         enviados = 0
         errores = []
         total_recipients = len(recipients)
+
+        # Siempre recarga la plantilla antes de enviar
+        def get_current_templates():
+            from .config import load_email_templates
+            return load_email_templates()
+
         def enviar_lote(lote, start_index):
             nonlocal enviados
+            subject_template, body_template = get_current_templates()  # <-- recarga aquí
             try:
                 if progress_callback:
                     progress_callback(f"🔗 Conectando al servidor SMTP...")
@@ -73,11 +80,11 @@ class EmailSender:
                 msg["To"] = formataddr((nombre, email))
                 msg["Subject"] = self.subject_template.replace("{MES}", mes.capitalize())
                 msg.add_header('Disposition-Notification-To', EMAIL_USER)
-                # Generar Message-ID único
-                import email.utils
-                message_id = email.utils.make_msgid(domain=None)
-                msg["Message-ID"] = message_id
+                msg_id = make_msgid()
+                msg['Message-ID'] = msg_id
                 html_content = self.body_template.replace("{NOMBRE}", nombre).replace("{MES}", mes.capitalize())
+                # Agregar Message-ID al final del cuerpo
+                html_content += f"<br><br><small><b>Identificador de envío (Message-ID):</b> {msg_id}</small>"
                 msg.attach(MIMEText(html_content, "html"))
                 try:
                     with open(pdf_path, "rb") as f:
@@ -91,11 +98,11 @@ class EmailSender:
                     constancia_path = self.generar_constancia_envio(
                         remitente=("Clínica Santa Rosa", EMAIL_USER),
                         destinatario=(nombre, email),
-                        asunto=self.subject_template.replace("{MES}", mes.capitalize()),
+                        asunto=subject_template.replace("{MES}", mes.capitalize()).replace("{NOMBRE}", nombre),
                         cuerpo=html_content,
                         fecha_envio=fecha_envio,
                         adjunto_path=pdf_path,
-                        message_id=message_id
+                        message_id=msg_id
                     )
                     time.sleep(1.5)
                 except Exception as e:
@@ -174,10 +181,6 @@ class EmailSender:
         # Eliminar el resto de etiquetas HTML
         cuerpo_texto = re.sub('<[^<]+?>', '', cuerpo_html)
         max_width = 90  # caracteres por línea
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(40, y, "Mensaje:")
-        y -= 18
-        c.setFont("Helvetica", 10)
         for line in cuerpo_texto.splitlines():
             if not line.strip():
                 y -= 10  # Espacio extra para líneas vacías (párrafos)

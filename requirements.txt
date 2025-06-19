@@ -4,3 +4,4 @@ ttkbootstrap>=1.10.0
 openpyxl>=3.0.0
 reportlab>=3.6.0
 PyPDF2>=3.0.0
+tkhtmlview>=0.2.0
