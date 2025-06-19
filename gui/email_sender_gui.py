@@ -1,12 +1,14 @@
 import os
 import ttkbootstrap as tb
+import webbrowser # Import webbrowser
 from ttkbootstrap.constants import *
 from tkinter import filedialog, StringVar, messagebox
 from gui.email_template_modal import open_template_editor_modal
 import threading
 import pandas as pd
 from core.email_sender import EmailSender
-from core.config import DEFAULT_PATH
+from core.config import DEFAULT_PATH, EMAIL_USER # Import EMAIL_USER
+from datetime import datetime # Import datetime
 
 class EmailSenderGUI:
     # El método ahora solo llama a la función modularizada
@@ -573,127 +575,42 @@ class EmailSenderGUI:
         mes = self.mes_var.get()
         path_boletas = self.path_var.get()
         
-        # Enviar correos y recolectar constancias generadas
-        constancias_generadas = []
-        
-        def send_batch_with_constancia(recipients, mes, path_boletas, progress_callback=None):
-            LOTE_SIZE = 30
-            enviados = 0
-            errores = []
-            total_recipients = len(recipients)
-            sender = self.sender
-            
-            def enviar_lote(lote, start_index):
-                nonlocal enviados
-                import os
-                import time
-                from datetime import datetime
-                
-                try:
-                    if progress_callback:
-                        progress_callback(f"🔗 Conectando al servidor SMTP...")
-                    import smtplib
-                    from core.config import SMTP_SERVER, SMTP_PORT, EMAIL_USER, EMAIL_PASSWORD
-                    server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
-                    server.login(EMAIL_USER, EMAIL_PASSWORD)
-                except Exception as e:
-                    for offset, recipient in enumerate(lote):
-                        i = start_index + offset
-                        nombre = recipient["nombre"]
-                        email = str(recipient["email"]).strip()
-                        dni = str(recipient["dni"]).strip()
-                        errores.append((i, nombre, email, dni, f"Error SMTP: {str(e)} (No se pudo conectar)"))
-                    return
-                    
-                for offset, recipient in enumerate(lote):
-                    i = start_index + offset
-                    if progress_callback:
-                        progress_callback(f"📧 Enviando correo {i+1} de {total_recipients}...")
-                    
-                    nombre = recipient["nombre"]
-                    email = str(recipient["email"]).strip()
-                    dni = str(recipient["dni"]).strip()
-                    
-                    if not sender.is_valid_dni(dni):
-                        errores.append((i, nombre, email, dni, "DNI inválido"))
-                        continue
-                        
-                    if not sender.is_valid_email(email):
-                        errores.append((i, nombre, email, dni, "Email inválido"))
-                        continue
-                        
-                    dni_formatted = dni.zfill(8)
-                    pdf_path = os.path.join(path_boletas, mes, f"{dni_formatted}.pdf")
-                    
-                    if not os.path.exists(pdf_path):
-                        errores.append((i, nombre, email, dni, "PDF no encontrado"))
-                        continue
-                        
-                    msg_asunto = sender.subject_template.replace("{MES}", mes.capitalize())
-                    html_content = sender.body_template.replace("{NOMBRE}", nombre).replace("{MES}", mes.capitalize())
-                    
-                    try:
-                        from email.mime.multipart import MIMEMultipart
-                        from email.mime.text import MIMEText
-                        from email.mime.application import MIMEApplication
-                        from email.utils import formataddr, make_msgid
-                        from email.header import Header
-                        from core.config import EMAIL_USER
-                        
-                        msg = MIMEMultipart("alternative")
-                        msg["From"] = formataddr((str(Header("Clínica Santa Rosa", "utf-8")), EMAIL_USER))
-                        msg["To"] = formataddr((nombre, email))
-                        msg["Subject"] = msg_asunto
-                        msg.add_header('Disposition-Notification-To', EMAIL_USER)
-                        msg_id = make_msgid()
-                        msg['Message-ID'] = msg_id
-                        html_content += f"<br><br><small><b>Identificador de envío (Message-ID):</b> {msg_id}</small>"
-                        msg.attach(MIMEText(html_content, "html"))
-                        
-                        with open(pdf_path, "rb") as f:
-                            part = MIMEApplication(f.read(), _subtype="pdf")
-                            part.add_header("Content-Disposition", "attachment", filename=os.path.basename(pdf_path))
-                            msg.attach(part)
-                            
-                        server.send_message(msg)
-                        enviados += 1
-                        
-                        fecha_envio = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        constancia_path = sender.generar_constancia_envio(
-                            remitente=("Clínica Santa Rosa", sender.EMAIL_USER if hasattr(sender, 'EMAIL_USER') else ""),
-                            destinatario=(nombre, email),
-                            asunto=msg_asunto,
-                            cuerpo=html_content,
-                            fecha_envio=fecha_envio,
-                            adjunto_path=pdf_path,
-                            message_id=msg_id
-                        )
-                        constancias_generadas.append(constancia_path)
-                        time.sleep(1.5)
-                        
-                    except Exception as e:
-                        errores.append((i, nombre, email, dni, f"Error SMTP: {str(e)}"))
-                        
-                server.quit()
-                time.sleep(2)
-                
-            for batch_start in range(0, total_recipients, LOTE_SIZE):
-                batch = recipients[batch_start:batch_start + LOTE_SIZE]
-                enviar_lote(batch, batch_start)
-                
-            return enviados, errores
-            
         import time
         start_time = time.time()
-        enviados, errores = send_batch_with_constancia(
+
+        # Call send_batch directly
+        successful_sends, errores = self.sender.send_batch(
             recipients, mes, path_boletas, progress_callback=self.update_progress
         )
+
+        # Generate constancias for successful sends
+        constancias_generadas = []
+        if successful_sends:
+            self.update_progress(f"📨 Generando constancias para {len(successful_sends)} envíos exitosos...")
+            for item in successful_sends:
+                try:
+                    fecha_envio = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    constancia_path = self.sender.generar_constancia_envio(
+                        remitente=("Clínica Santa Rosa", EMAIL_USER), # Use imported EMAIL_USER
+                        destinatario=(item['nombre'], item['email']),
+                        asunto=item['asunto'],
+                        cuerpo=item['cuerpo_html'],
+                        fecha_envio=fecha_envio,
+                        adjunto_path=item['pdf_path'],
+                        message_id=item['message_id']
+                    )
+                    constancias_generadas.append(constancia_path)
+                except Exception as e:
+                    self.update_status(f"⚠️ Error generando constancia para {item['email']}: {str(e)}", "warning")
+                    # Log this error as well, perhaps to a separate log or add to 'errores' list with a specific marker
+                    errores.append(('-', item['nombre'], item['email'], item['dni'], f"Error al generar constancia: {str(e)}"))
+
         elapsed = int(time.time() - start_time)
         elapsed_str = f"{elapsed}s" if elapsed < 60 else f"{elapsed//60}m {elapsed%60}s"
 
         error_file_saved = self.sender.generar_log_errores(errores) if errores else None
         total_procesados = len(recipients)
-        total_enviados = enviados
+        total_enviados = len(successful_sends) # Use length of successful_sends
         total_errores = len(errores)
 
         # Actualizar estadísticas en la GUI
@@ -731,6 +648,6 @@ class EmailSenderGUI:
 
         if error_file_saved:
             try:
-                os.startfile(error_file_saved)
+                webbrowser.open(os.path.realpath(error_file_saved)) # Changed to webbrowser.open
             except Exception:
                 pass

@@ -6,10 +6,10 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
-from email.utils import formataddr
+from email.utils import formataddr, make_msgid # Added make_msgid
 from openpyxl import Workbook
 import logging
-from .config import SMTP_SERVER, SMTP_PORT, EMAIL_USER, EMAIL_PASSWORD, load_email_templates
+from .config import SMTP_SERVER, SMTP_PORT, EMAIL_USER, EMAIL_PASSWORD, load_email_templates, LOTE_SIZE # Import LOTE_SIZE
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from PyPDF2 import PdfMerger
@@ -29,8 +29,8 @@ class EmailSender:
         return dni.isdigit() and len(dni) == 8
 
     def send_batch(self, recipients, mes, path_boletas, progress_callback=None):
-        LOTE_SIZE = 30
-        enviados = 0
+        # LOTE_SIZE = 30 # Removed local definition, now imported
+        successful_sends = [] # List to store details of successful sends
         errores = []
         total_recipients = len(recipients)
 
@@ -40,7 +40,6 @@ class EmailSender:
             return load_email_templates()
 
         def enviar_lote(lote, start_index):
-            nonlocal enviados
             subject_template, body_template = get_current_templates()  # <-- recarga aquí
             try:
                 if progress_callback:
@@ -92,19 +91,17 @@ class EmailSender:
                         part.add_header("Content-Disposition", "attachment", filename=os.path.basename(pdf_path))
                         msg.attach(part)
                     server.send_message(msg)
-                    enviados += 1
-                    # Generar constancia PDF con adjunto y Message-ID
-                    fecha_envio = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    constancia_path = self.generar_constancia_envio(
-                        remitente=("Clínica Santa Rosa", EMAIL_USER),
-                        destinatario=(nombre, email),
-                        asunto=subject_template.replace("{MES}", mes.capitalize()).replace("{NOMBRE}", nombre),
-                        cuerpo=html_content,
-                        fecha_envio=fecha_envio,
-                        adjunto_path=pdf_path,
-                        message_id=msg_id
-                    )
-                    time.sleep(1.5)
+                    # Collect details of successfully sent email
+                    successful_sends.append({
+                        'nombre': nombre,
+                        'email': email,
+                        'dni': dni,
+                        'pdf_path': pdf_path,
+                        'message_id': msg_id,
+                        'asunto': msg["Subject"],
+                        'cuerpo_html': html_content
+                    })
+                    time.sleep(1.5) # Keep the delay to avoid overwhelming the server
                 except Exception as e:
                     errores.append((i, nombre, email, dni, f"Error SMTP: {str(e)}"))
             server.quit()
@@ -112,7 +109,8 @@ class EmailSender:
         for batch_start in range(0, total_recipients, LOTE_SIZE):
             batch = recipients[batch_start:batch_start + LOTE_SIZE]
             enviar_lote(batch, batch_start + 2)
-        return enviados, errores
+        return successful_sends, errores
+
     def generar_constancia_envio(self, remitente, destinatario, asunto, cuerpo, fecha_envio, adjunto_path, message_id=None):
         """
         Genera un PDF de constancia de envío exitoso y lo combina con el PDF adjunto enviado.
