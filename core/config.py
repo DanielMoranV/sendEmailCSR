@@ -8,7 +8,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-DEFAULT_PATH = os.path.join(os.path.expanduser("~"), "BoletasCSR") # Changed to user's home directory
+DEFAULT_PATH = "C:/BoletasCSR"
 EMAIL_CONFIG_FILE = "email_config.txt"
 LOTE_SIZE = 30 # Default batch size for sending emails
 
