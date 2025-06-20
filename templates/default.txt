@@ -1,0 +1,2 @@
+SUBJECT=Boleta del mes de {MES} prueba
+BODY=<html><body><h2>Hola {NOMBRE},</h2><p>Adjuntamos tu boleta correspondiente al mes de {MES}.</p><p>Saludos cordiales,<br>Clínica Santa Rosa</p><p>Favor de confirmar la recepción de este correo.</p></body></html>
