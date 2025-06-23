@@ -1,0 +1,20 @@
+{
+  "default": {
+    "id": "default",
+    "name": "Plantilla Migrada (Predeterminada)",
+    "subject": "Boleta del mes de {MES}",
+    "body": "<html><body><h2>Hola {NOMBRE},</h2><p>Adjuntamos tu boleta correspondiente al mes de {MES}.</p><p>Saludos cordiales,<br>Clínica Santa Rosa</p><p>Favor de confirmar la recepción de este correo.</p></body></html>",
+    "created_at": "2025-06-23T16:09:58.832646",
+    "updated_at": "2025-06-23T16:17:46.077050",
+    "is_default": true
+  },
+  "template_1750713346": {
+    "id": "template_1750713346",
+    "name": "Utilidades",
+    "subject": "Pago de utilidades periodo 2024 {MES}",
+    "body": "<html><body><h2>Hola {NOMBRE},</h2><p>Adjuntamos tus utilidades correspondiente al periodo 2024 en el mes de {MES}.</p><p>Saludos cordiales,<br>Clínica Santa Rosa</p></body></html>",
+    "created_at": "2025-06-23T16:15:46.284724",
+    "updated_at": "2025-06-23T16:17:25.773558",
+    "is_default": false
+  }
+}

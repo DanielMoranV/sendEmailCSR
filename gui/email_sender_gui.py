@@ -13,6 +13,11 @@ from datetime import datetime
 class EmailSenderGUI:
     def open_template_editor_modal(self):
         open_template_editor_modal(self.root)
+    
+    def open_template_manager(self):
+        """Abrir el gestor de plantillas"""
+        from gui.template_manager_gui import open_template_manager
+        open_template_manager(self.root)
 
     def __init__(self, root):
         self.root = root
@@ -138,10 +143,23 @@ class EmailSenderGUI:
         info_text = "📋 Excel: nombre, email, dni\n📁 PDFs: {dni}.pdf"
         tb.Label(info_frame, text=info_text, font=("Segoe UI", 8), justify="left").pack(anchor="w")
 
-        # Botón editar plantilla
+        # Botones de plantillas
+        template_buttons_frame = tb.Frame(parent)
+        template_buttons_frame.pack(fill="x", pady=(8, 0))
+        
+        # Botón gestor de plantillas
+        manager_btn = tb.Button(
+            template_buttons_frame,
+            text="📝 Gestor Plantillas",
+            command=self.open_template_manager,
+            bootstyle="info"
+        )
+        manager_btn.pack(fill="x", pady=(0, 5))
+        
+        # Botón editar plantilla (mantenido por compatibilidad)
         edit_btn = tb.Button(
-            parent,
-            text="✏️ Editar Plantilla",
+            template_buttons_frame,
+            text="✏️ Editor Rápido",
             command=self.open_template_editor_modal,
             bootstyle="info-outline"
         )
